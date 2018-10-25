@@ -1,0 +1,126 @@
+---
+title: "Regression Models Course Project"
+author: "Francisco Martín"
+date: "October 17, 2018"
+output: html_document
+fig_width: 5 
+fig_height: 3.5
+---
+
+
+## Statement
+
+You work for Motor Trend, a magazine about the automobile industry. Looking at a data set of a collection of cars, 
+they are interested in exploring the relationship between a set of variables and miles per gallon (MPG) (outcome). 
+They are particularly interested in the following two questions:
+
+- "Is an automatic or manual transmission better for MPG"
+- "Quantify the MPG difference between automatic and manual transmissions"
+
+## Executive Summary
+
+We have to examine mtcars dataset (default in R) and explore how MPG is correlated with other car 
+parameters such as the number of cylinders, horsepower, and automatic/manual transmission. In the end, 
+we should be capable of giving an answer of how the type of transmission affects on miles per gallon 
+using only linear regression analysis and give a set of figures which support our conclusions.
+
+## Exploratory Analysis
+
+First of all, we should load mtcars dataset into our workspace
+
+```{r dataset}
+data(mtcars)
+head(mtcars)
+```
+
+As we see, type of transmission is displayed in column "am", where 1 means automatic and 0 means manual 
+transmission. I don't like how it looks, so I am going to change it to a factor column and see how data 
+looks for each of one:
+
+```{r correlations, echo=FALSE}
+correlations <- round(cor(mtcars)[1,],2)
+```
+
+```{r transmission_type}
+mtcars_cool <- mtcars
+mtcars_cool$am <- factor(mtcars$am, labels = c("manual","automatic"))
+summary(mtcars_cool[mtcars_cool$am == "automatic",]$mpg)
+summary(mtcars_cool[mtcars_cool$am == "manual",]$mpg)
+```
+```{r difference, echo=FALSE}
+difference <- round(mean(mtcars_cool[mtcars_cool$am == "automatic",]$mpg)-mean(mtcars_cool[mtcars_cool$am == "manual",]$mpg),2)
+```
+
+We can see mean value is about `r difference` more mpg in automatic than in manual (plot 1). We can adventure and 
+do a big linear model looking for relations, but maybe it is better to look at correlations between different 
+variables and mpg before doing any model:
+
+```{r correlations2, echo=FALSE}
+correlations
+```
+
+There are four variables which have a stronger correlation. Those are "wt", "cyl", "disp" and "hp". 
+Let's look how this variables and type of transmission affect on miles per galon doing different models:
+
+```{r linear_models}
+lm_1 <- lm(formula = mpg ~ am, data = mtcars)
+lm_2 <- lm(formula = mpg ~ am + wt, data = mtcars)
+lm_3 <- lm(formula = mpg ~ am + wt + cyl, data = mtcars)
+lm_4 <- lm(formula = mpg ~ am + wt + cyl + disp, data = mtcars)
+lm_5 <- lm(formula = mpg ~ am + wt + cyl + disp + hp, data = mtcars)
+lm_all <- lm(formula = mpg ~ ., data = mtcars)
+```
+
+We have trained six models. Let's compare all of them using anova:
+
+```{r anova_compare}
+anova(lm_1, lm_2, lm_3, lm_4, lm_5, lm_all)
+```
+
+Looking at summary we can see how this models fit our data. Looking at the coefficient for 
+type of transmission: in lm_3 coef is `r summary(lm_3)$coef[2,1]`, in lm_4 coef is `r summary(lm_4)$coef[2,1]` 
+and ini lm_5 is `r summary(lm_5)$coef[2,1]`. Looks like hp is a key factor, because it changes the sign of 
+the estimate am. Looking at this, and seing that wt and cyl has the same impact on model, let's train the final model:
+
+```{r final_lm}
+lm_final <- lm(formula = mpg ~ am + wt + hp, data = mtcars)
+summary(lm_final)
+```
+
+Looking at R-Squared term, it explains `r round(summary(lm_final)$r.squared*100,2)`% of the variability. 
+We can use this model to predict and explain general behaviour of mpg as we did in appendix (plots 2 and 3)
+doublechecking residuals and seing their are normally distributed.
+
+Once we have doublecheck this model is valid, we can conclude automatic cars will run aproximatelly 
+`r round(summary(lm_final)$coef[2,1],2)` more miles per galeon.
+
+
+
+## Conclusion
+
+Looking at results obtained, we can conclude automatic car will travel `r round(summary(lm_final)$coef[2,1],2)` 
+more miles per galeon. Based on this result, we can conclude that automatic cars are more efficient than 
+manual cars.
+
+
+## Apendix (figures)
+
+### Plot 1 - BoxPlot of mpg per type of transmission
+
+```{r plot1}
+boxplot(mpg ~ am, data = mtcars_cool, col = (c("red","blue")), ylab = "Miles Per Gallon", xlab = "Transmission Type")
+```
+
+### Plot 2 - Correlation of variables in final model
+
+```{r plot2}
+mtcarsplot <- mtcars[,c(1,2,3,4,6,9)]
+pairs(mtcarsplot, panel = panel.smooth, col = 9 + mtcarsplot$wt)
+```
+
+### Plot 3 - Plot of residuals in final model 
+
+```{r plot3}
+par(mfrow = c(2,2))
+plot(lm_final)
+```
